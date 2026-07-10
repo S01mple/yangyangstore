@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YangYang's Store · Inventory Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Roboto, system-ui, sans-serif; background: #f5f7fb; padding: 24px; color: #1e293b; }
+        .container { max-width: 100%; margin: 0 auto; }
+        .header { background: white; border-radius: 20px; padding: 20px 28px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .header h1 { font-size: 1.7rem; background: linear-gradient(135deg, #1e3a8a, #3b82f6); background-clip: text; -webkit-background-clip: text; color: transparent; }
+        .badge { background: #eef2ff; padding: 6px 14px; border-radius: 40px; font-size: 0.8rem; color: #2563eb; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        .search-box { background: white; border-radius: 40px; padding: 6px 18px; display: flex; align-items: center; gap: 8px; border: 1px solid #e2e8f0; }
+        .search-box input { border: none; padding: 8px 0; width: 260px; font-size: 0.9rem; outline: none; }
+        .btn-primary { background: #2563eb; color: white; border: none; padding: 8px 20px; border-radius: 40px; font-weight: 500; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-outline { background: white; border: 1px solid #cbd5e1; padding: 6px 16px; border-radius: 30px; cursor: pointer; }
+        .btn-danger { background: #ef4444; color: white; border: none; padding: 6px 14px; border-radius: 30px; cursor: pointer; }
+        .btn-danger:hover { background: #dc2626; }
+        .sort-selector { display: flex; align-items: center; gap: 12px; background: white; padding: 6px 16px; border-radius: 40px; border: 1px solid #e2e8f0; }
+        .sort-selector label { font-size: 0.8rem; font-weight: 500; color: #475569; }
+        .sort-selector select { border: none; background: transparent; font-size: 0.85rem; padding: 6px; outline: none; cursor: pointer; }
+        .sort-selector button { background: #f1f5f9; border: none; padding: 4px 10px; border-radius: 30px; font-size: 0.7rem; cursor: pointer; margin-left: 4px; }
+        .sort-selector button.active-sort { background: #2563eb; color: white; }
+        .table-wrapper { background: white; border-radius: 20px; overflow-x: auto; border: 1px solid #eef2f6; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 1300px; table-layout: auto; }
+        th { text-align: left; padding: 14px 12px; background: #f8fafc; font-weight: 600; color: #334155; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; white-space: nowrap; }
+        td { padding: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        tr:hover td { background-color: #fefce8; }
+        .selected-row td { background-color: #dbeafe; }
+        
+        .checkbox-col { width: 32px; text-align: center; }
+        #dataTable th:nth-child(2), #dataTable td:nth-child(2) { min-width: 140px; }
+        #dataTable th:nth-child(3), #dataTable td:nth-child(3) { min-width: 80px; }
+        #dataTable th:nth-child(4), #dataTable td:nth-child(4) { min-width: 180px; }
+        #dataTable th:nth-child(5), #dataTable td:nth-child(5) { min-width: 70px; }
+        #dataTable th:nth-child(6), #dataTable td:nth-child(6) { min-width: 100px; }
+        #dataTable th:nth-child(7), #dataTable td:nth-child(7) { min-width: 100px; }
+        #dataTable th:nth-child(8), #dataTable td:nth-child(8) { min-width: 110px; }
+        #dataTable th:nth-child(9), #dataTable td:nth-child(9) { min-width: 100px; }
+        #dataTable th:nth-child(10), #dataTable td:nth-child(10) { min-width: 120px; }
+        #dataTable th:nth-child(11), #dataTable td:nth-child(11) { min-width: 110px; }
+        
+        #soldTable th:nth-child(1), #soldTable td:nth-child(1) { min-width: 200px; width: 200px; }
+        #soldTable th:nth-child(2), #soldTable td:nth-child(2) { min-width: 100px; }
+        #soldTable th:nth-child(3), #soldTable td:nth-child(3) { min-width: 180px; }
+        #soldTable th:nth-child(4), #soldTable td:nth-child(4) { min-width: 80px; }
+        #soldTable th:nth-child(5), #soldTable td:nth-child(5) { min-width: 100px; }
+        #soldTable th:nth-child(6), #soldTable td:nth-child(6) { min-width: 120px; }
+        #soldTable th:nth-child(7), #soldTable td:nth-child(7) { min-width: 110px; }
+        #soldTable th:nth-child(8), #soldTable td:nth-child(8) { min-width: 150px; }
+        
+        .editable-cell {
+            cursor: pointer;
+            transition: 0.1s;
+            border-radius: 6px;
+            padding: 4px 8px;
+            margin: -4px -8px;
+            display: inline-block;
+            line-height: 1.4;
+        }
+        .editable-cell:hover { background-color: #eef2ff; }
+        
+        input.cell-input, select.cell-select { 
+            width: 100%; 
+            min-width: 100px;
+            padding: 6px 8px; 
+            border: 1px solid #3b82f6; 
+            border-radius: 8px; 
+            font-size: 0.8rem; 
+            background: white; 
+            outline: none; 
+        }
+        .action-btn { background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 20px; font-size: 0.85rem; margin: 0 2px; }
+        .sell-btn { color: #10b981; background: #ecfdf5; }
+        .sell-btn:hover { background: #d1fae5; }
+        .delete-btn { color: #ef4444; background: #fef2f2; }
+        .delete-btn:hover { background: #fee2e2; }
+        .restore-btn { background: none; border: none; color: #8b5cf6; cursor: pointer; padding: 4px 8px; border-radius: 20px; font-size: 0.8rem; }
+        .restore-btn:hover { background: #ede9fe; }
+        .sync-status { position: fixed; bottom: 20px; right: 20px; background: #1e293b; color: white; padding: 6px 14px; border-radius: 30px; font-size: 0.75rem; z-index: 100; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 28px; width: 580px; max-width: 90%; padding: 24px; max-height: 90vh; overflow-y: auto; }
+        .modal-content h3 { margin-bottom: 20px; font-size: 1.4rem; }
+        .form-row { margin-bottom: 16px; }
+        .form-row label { display: block; font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; color: #334155; }
+        .form-row input, .form-row textarea, .form-row select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 16px; font-size: 0.9rem; background: white; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+        .loading-row td { text-align: center; padding: 40px; color: #94a3b8; }
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+        .status-sold { background: #dbeafe; color: #1e40af; }
+        .status-reserved { background: #fef9c3; color: #854d0e; }
+        .status-available { background: #dcfce7; color: #166534; }
+        .nav-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; flex-wrap: wrap; }
+        .nav-tab { padding: 8px 20px; cursor: pointer; border-radius: 30px; background: transparent; border: none; font-size: 0.9rem; transition: 0.2s; }
+        .nav-tab.active { background: #2563eb; color: white; }
+        .nav-tab:hover:not(.active) { background: #eef2ff; }
+        
+        .log-table { min-width: 1000px; }
+        .log-table th, .log-table td { padding: 10px 12px; }
+        .log-table th:first-child, .log-table td:first-child { min-width: 160px; white-space: nowrap; }
+        .log-table th:nth-child(2), .log-table td:nth-child(2) { min-width: 120px; }
+        .log-table th:nth-child(3), .log-table td:nth-child(3) { min-width: 80px; }
+        .log-table th:nth-child(4), .log-table td:nth-child(4) { min-width: 250px; }
+        
+        .log-row { border-left: 4px solid transparent; }
+        .log-row-insert { border-left-color: #10b981; background-color: #f0fdf4; }
+        .log-row-update { border-left-color: #3b82f6; background-color: #eff6ff; }
+        .log-row-delete { border-left-color: #ef4444; background-color: #fef2f2; }
+        .log-row-sell { border-left-color: #f59e0b; background-color: #fffbeb; }
+        .scroll-hint { font-size: 0.7rem; color: #64748b; margin-top: 6px; text-align: right; }
+        .log-change-detail { font-family: monospace; font-size: 0.75rem; color: #4b5563; }
+        .sold-total-card { background: #f0fdf4; border-radius: 16px; padding: 12px 20px; margin-bottom: 16px; display: inline-block; border: 1px solid #bbf7d0; }
+        .sold-total-card span { font-weight: bold; font-size: 1.2rem; color: #166534; }
+        .filter-group { display: flex; gap: 12px; align-items: center; background: white; padding: 6px 16px; border-radius: 40px; border: 1px solid #e2e8f0; flex-wrap: wrap; }
+        .filter-group select, .filter-group input { border: none; background: transparent; padding: 6px; font-size: 0.85rem; outline: none; cursor: pointer; }
+        .filter-group label { font-size: 0.75rem; color: #64748b; }
+        .filter-separator { color: #cbd5e1; padding: 0 4px; }
+        
+        /* 图片上传样式 */
+        .image-upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+        .image-upload-area:hover {
+            border-color: #3b82f6;
+            background: #f0f7ff;
+        }
+        .image-upload-area .preview-img {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 12px;
+            margin-top: 10px;
+        }
+        .image-upload-area .placeholder-text {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        .image-upload-area .placeholder-text .icon {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .image-preview-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .remove-image-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 24px;
+            text-align: center;
+        }
+        .remove-image-btn:hover {
+            background: #dc2626;
+        }
+        .product-image-thumb {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .product-image-thumb:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📦 YangYang's Store · Inventory Manager</h1>
+        <div class="badge">Sell with one click | Restore from Log | Product Images</div>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="records">📋 Active Products</button>
+        <button class="nav-tab" data-tab="sold">💰 Sold Items</button>
+        <button class="nav-tab" data-tab="logs">📜 Activity Log (Restore here)</button>
+    </div>
+
+    <!-- Active Products Panel -->
+    <div id="recordsPanel">
+        <div class="toolbar">
+            <div class="search-box">🔍 <input type="text" id="searchInput" placeholder="Filter by product / buyer..."></div>
+            <div style="display: flex; gap: 10px;">
+                <div class="sort-selector">
+                    <label>📊 Sort by:</label>
+                    <select id="sortFieldSelect">
+                        <option value="product_name">Product</option>
+                        <option value="price">Price</option>
+                        <option value="buyer">Buyer</option>
+                    </select>
+                    <button id="sortAscBtn">⬆️ Asc</button>
+                    <button id="sortDescBtn">⬇️ Desc</button>
+                    <button id="sortNoneBtn" class="active-sort">⏹️ None</button>
+                </div>
+                <button class="btn-primary" id="openAddModalBtn">➕ Add Product</button>
+                <button class="btn-danger" id="batchDeleteBtn">🗑️ Batch Delete</button>
+            </div>
+        </div>
+        <div class="table-wrapper" id="recordsTableWrapper">
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th class="checkbox-col"><input type="checkbox" id="selectAllCheckbox"></th>
+                        <th>Product</th><th>Color</th><th>Specification</th><th>Price($)</th>
+                        <th>Payment</th><th>Buyer</th><th>Selling Status</th><th>Delivery Status</th>
+                        <th>Notes</th><th>Image</th><th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"><tr class="loading-row"><td colspan="12">Loading...  </tbody>
+            </table>
+            <div class="scroll-hint">💡 Click "Sell" to mark as sold | Click any cell to edit</div>
+        </div>
+    </div>
+
+    <!-- Sold Items Panel -->
+    <div id="soldPanel" style="display: none;">
+        <div class="toolbar">
+            <div class="search-box">🔍 <input type="text" id="soldSearchInput" placeholder="Filter by product / buyer..."></div>
+            <div class="filter-group">
+                <label>📅 Filter:</label>
+                <select id="yearFilter"><option value="">All Years</option></select>
+                <span class="filter-separator">·</span>
+                <select id="monthFilter">
+                    <option value="">All Months</option>
+                    <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+                    <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+                    <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+                    <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+                </select>
+                <span class="filter-separator">·</span>
+                <select id="dayFilter"><option value="">All Dates</option></select>
+                <button class="btn-outline" id="clearDateFiltersBtn" style="padding: 4px 12px;">Clear</button>
+            </div>
+            <button class="btn-outline" id="refreshSoldBtn">🔄 Refresh</button>
+        </div>
+        <div class="sold-total-card">💰 Total Sales: $<span id="soldTotalAmount">0.00</span></div>
+        <div class="table-wrapper">
+            <table id="soldTable">
+                <thead>
+                    <tr>
+                        <th>Product</th><th>Color</th><th>Specification</th><th>Price($)</th>
+                        <th>Payment</th><th>Buyer</th><th>Sold Date</th><th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="soldBody"><tr class="loading-row"><td colspan="8">Loading...   </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Logs Panel -->
+    <div id="logsPanel" style="display: none;">
+        <div class="toolbar">
+            <div class="search-box">🔍 <input type="text" id="logSearchInput" placeholder="Filter by product / action..."></div>
+            <button class="btn-outline" id="refreshLogsBtn">🔄 Refresh</button>
+        </div>
+        <div class="table-wrapper">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>Time</th><th>Product</th><th>Action</th><th>Details</th>
+                        <th>Operator</th><th>Restore</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody"><tr class="loading-row"><td colspan="6">Loading...    </tbody>
+            </table>
+            <div class="scroll-hint">💡 Click Restore to undo DELETE or SELL operations</div>
+        </div>
+    </div>
+</div>
+<div class="sync-status" id="syncStatus">🔄 Connecting...</div>
+
+<!-- Modal with Image Upload -->
+<div id="recordModal" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitle">New Product</h3>
+        <input type="hidden" id="editId">
+        <input type="hidden" id="imageUrl">
+        
+        <div class="form-row">
+            <label>Product *</label>
+            <input type="text" id="modalProduct" placeholder="Product name">
+        </div>
+        <div class="form-row">
+            <label>Color</label>
+            <input type="text" id="modalColor" placeholder="Color">
+        </div>
+        <div class="form-row">
+            <label>Specification</label>
+            <textarea id="modalSpec" rows="2" placeholder="Size, material..."></textarea>
+        </div>
+        <div class="form-row">
+            <label>Price ($)</label>
+            <input type="number" step="0.01" id="modalPrice" placeholder="Amount">
+        </div>
+        <div class="form-row">
+            <label>Payment</label>
+            <select id="modalPayment">
+                <option value="">-- Select --</option>
+                <option value="Cash">💵 Cash</option>
+                <option value="Alipay">📱 Alipay</option>
+                <option value="WeChat">💬 WeChat</option>
+                <option value="eTransfer">🏦 eTransfer</option>
+                <option value="Card">💳 Card</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label>Buyer</label>
+            <input type="text" id="modalBuyer" placeholder="Buyer name">
+        </div>
+        <div class="form-row">
+            <label>Selling Status</label>
+            <select id="modalSellingStatus">
+                <option value="">-- Select --</option>
+                <option value="Available">✅ Available</option>
+                <option value="Reserved">🔒 Reserved</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label>Delivery Status</label>
+            <select id="modalDeliveryStatus">
+                <option value="">-- Select --</option>
+                <option value="Arrived">📦 Arrived</option>
+                <option value="Pending">⏳ Pending</option>
+                <option value="Shipped">🚚 Shipped</option>
+                <option value="Cancelled">❌ Cancelled</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label>Notes</label>
+            <textarea id="modalNotes" rows="1"></textarea>
+        </div>
+        
+	<!-- 图片上传区域 -->
+        <div class="form-row">
+            <label>Product Image</label>
+            <div class="image-upload-area" id="imageUploadArea">
+                <div id="imagePlaceholder">
+                    <span class="icon">📷</span>
+                    <span class="placeholder-text">Click to upload or take photo</span>
+                    <input type="file" id="imageInput" accept="image/*" style="display:none;">
+                </div>
+                <div id="imagePreview" style="display:none;" class="image-preview-wrapper">
+                    <img id="previewImg" class="preview-img" alt="Product preview">
+                    <button type="button" class="remove-image-btn" id="removeImageBtn">×</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal-actions">
+            <button class="btn-outline" id="closeModalBtn">Cancel</button>
+            <button class="btn-primary" id="saveRecordBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const SUPABASE_URL = 'https://wkjdurwdgxqnublysanb.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndramR1cndkZ3hxbnVibHlzYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4OTA1OTgsImV4cCI6MjA5NjQ2NjU5OH0.cgsUNJKzgM0jq5zX9_Ctwy86oe_vGas_9yRg1DZh6Tg';
+    
+    let supabase;
+    if (!window._supabaseClient) window._supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabase = window._supabaseClient;
+    
+    // Storage Bucket 名称（需要先在 Supabase 中创建）
+    const STORAGE_BUCKET = 'product-images';
+    
+    let allRecords = [], allLogs = [], soldItems = [];
+    let searchKeyword = '', soldSearchKeyword = '', logSearchKeyword = '';
+    let selectedRecordIds = new Set();
+    let currentTab = 'records';
+    let sortField = 'created_at', sortOrder = 'desc';
+    let yearFilter = '', monthFilter = '', dayFilter = '';
+    let tempImageFile = null;
+    let tempImageUrl = '';
+    
+    // DOM references
+    const imageInput = document.getElementById('imageInput');
+    const imageUploadArea = document.getElementById('imageUploadArea');
+    const imagePlaceholder = document.getElementById('imagePlaceholder');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const removeImageBtn = document.getElementById('removeImageBtn');
+    const imageUrlInput = document.getElementById('imageUrl');
+    
+    const formatSelling = (s) => { if (!s) return '-'; const map = { 'Available': '✅ Available', 'Reserved': '🔒 Reserved' }; return map[s] || s; };
+    const formatDelivery = (s) => { if (!s) return '-'; const map = { 'Arrived': '📦 Arrived', 'Pending': '⏳ Pending', 'Shipped': '🚚 Shipped', 'Cancelled': '❌ Cancelled' }; return map[s] || s; };
+    const formatPayment = (p) => { if (!p) return '-'; const map = { 'Cash': '💵 Cash', 'Alipay': '📱 Alipay', 'WeChat': '💬 WeChat', 'eTransfer': '🏦 eTransfer', 'Card': '💳 Card' }; return map[p] || p; };
+    const getSellingClass = (s) => { if (s === 'Reserved') return 'status-reserved'; if (s === 'Available') return 'status-available'; return ''; };
+    const escapeHtml = (str) => { if (!str) return ''; return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); };
+    const setStatus = (text, isErr = false) => { const el = document.getElementById('syncStatus'); if (el) { el.innerHTML = text; el.style.backgroundColor = isErr ? '#dc2626' : '#2b6e4f'; setTimeout(() => { if (!isErr && el.innerHTML === text) el.innerHTML = '✅ Synced'; }, 2000); } };
+    
+    // ========== 图片上传功能 ==========
+    
+    // 点击上传区域触发文件选择
+    imageUploadArea.addEventListener('click', function(e) {
+        if (e.target === removeImageBtn) return;
+        imageInput.click();
+    });
+    
+    // 文件选择后处理
+    imageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // 验证文件类型
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file.');
+            return;
+        }
+        
+        // 验证文件大小（限制 5MB）
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image size must be less than 5MB.');
+            return;
+        }
+        
+        tempImageFile = file;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            imagePlaceholder.style.display = 'none';
+            imagePreview.style.display = 'block';
+            tempImageUrl = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    // 移除图片
+    removeImageBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        tempImageFile = null;
+        tempImageUrl = '';
+        imagePlaceholder.style.display = 'block';
+        imagePreview.style.display = 'none';
+        previewImg.src = '';
+        imageInput.value = '';
+        imageUrlInput.value = '';
+    });
+    
+    // 上传图片到 Supabase Storage
+    async function uploadImage(file, productName) {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${productName.replace(/\s+/g, '_')}.${fileExt}`;
+            const filePath = `products/${fileName}`;
+            
+            const { data, error } = await supabase.storage
+                .from(STORAGE_BUCKET)
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+            
+            if (error) throw error;
+            
+            // 获取公开 URL
+            const { data: urlData } = supabase.storage
+                .from(STORAGE_BUCKET)
+                .getPublicUrl(filePath);
+            
+            return urlData.publicUrl;
+        } catch (error) {
+            console.error('Upload error:', error);
+            throw error;
+        }
+    }
+    
+    // 删除图片
+    async function deleteImage(imageUrl) {
+        if (!imageUrl) return;
+        try {
+            const filePath = imageUrl.split('/').pop();
+            const { error } = await supabase.storage
+                .from(STORAGE_BUCKET)
+                .remove([filePath]);
+            if (error) console.warn('Delete image error:', error);
+        } catch (e) {
+            console.warn('Delete image error:', e);
+        }
+    }
+    
+    const sortRecords = (records) => {
+        if (sortField === 'created_at' && sortOrder === 'desc') return records;
+        return [...records].sort((a, b) => {
+            let va, vb;
+            if (sortField === 'price') { va = parseFloat(a.price) || 0; vb = parseFloat(b.price) || 0; }
+            else if (sortField === 'product_name') { va = (a.product_name || '').toLowerCase(); vb = (b.product_name || '').toLowerCase(); }
+            else if (sortField === 'buyer') { va = (a.buyer || '').toLowerCase(); vb = (b.buyer || '').toLowerCase(); }
+            else return 0;
+            if (va < vb) return sortOrder === 'asc' ? -1 : 1;
+            if (va > vb) return sortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
+    };
+    
+    const updateSortButtons = () => {
+        const ascBtn = document.getElementById('sortAscBtn');
+        const descBtn = document.getElementById('sortDescBtn');
+        const noneBtn = document.getElementById('sortNoneBtn');
+        if (!ascBtn) return;
+        ascBtn.classList.remove('active-sort');
+        descBtn.classList.remove('active-sort');
+        noneBtn.classList.remove('active-sort');
+        if (sortField === 'created_at' && sortOrder === 'desc') {
+            noneBtn.classList.add('active-sort');
+        } else if (sortOrder === 'asc') {
+            ascBtn.classList.add('active-sort');
+        } else {
+            descBtn.classList.add('active-sort');
+        }
+    };
+    
+    const setSort = (field, order) => {
+        sortField = field;
+        sortOrder = order;
+        updateSortButtons();
+        renderTable();
+    };
+    
+    const stopSort = () => {
+        sortField = 'created_at';
+        sortOrder = 'desc';
+        updateSortButtons();
+        renderTable();
+    };
+    
+    const logOp = async (rid, type, oldD, newD, fields, pName) => {
+        try {
+            let newStore = newD;
+            if (pName && (type === 'UPDATE' || type === 'SELL')) newStore = { ...(newD || {}), product_name: pName };
+            await supabase.from('operation_logs').insert([{ record_id: rid, action_type: type, old_data: oldD, new_data: newStore, changed_fields: fields, operator: 'system', created_at: new Date() }]);
+            if (currentTab === 'logs') await loadLogs();
+        } catch(e) { console.warn(e); }
+    };
+    
+    const loadRecords = async () => {
+        try {
+            setStatus('🔄 Loading...');
+            const { data, error } = await supabase.from('sales_records').select('*').order('created_at', { ascending: false });
+            if (error) throw error;
+            const all = data || [];
+            allRecords = all.filter(r => r.selling_status !== 'Sold');
+            soldItems = all.filter(r => r.selling_status === 'Sold');
+            updateFilterOptions();
+            if (currentTab === 'sold') renderSold();
+            if (currentTab === 'records') renderTable();
+            setStatus(`✅ Active: ${allRecords.length}  Sold: ${soldItems.length}`);
+        } catch (err) { setStatus('❌ ' + err.message, true); }
+    };
+    
+    const updateFilterOptions = () => {
+        const years = [...new Set(soldItems.map(i => i.sold_date ? new Date(i.sold_date).getFullYear() : null).filter(y => y))];
+        years.sort((a,b)=>b-a);
+        const yearSel = document.getElementById('yearFilter');
+        if (yearSel) {
+            const cur = yearSel.value;
+            yearSel.innerHTML = '<option value="">All Years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+            if (cur && years.includes(parseInt(cur))) yearSel.value = cur;
+        }
+        updateDayOptions();
+    };
+    
+    const updateDayOptions = () => {
+        const daySel = document.getElementById('dayFilter');
+        if (!daySel) return;
+        let availableDays = new Set();
+        soldItems.forEach(item => {
+            if (!item.sold_date) return;
+            const date = new Date(item.sold_date);
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            if ((!yearFilter || year == parseInt(yearFilter)) && (!monthFilter || month == parseInt(monthFilter))) {
+                availableDays.add(day);
+            }
+        });
+        const days = Array.from(availableDays).sort((a,b)=>a-b);
+        const cur = daySel.value;
+        daySel.innerHTML = '<option value="">All Dates</option>' + days.map(d => `<option value="${d}">${d}</option>`).join('');
+        if (cur && days.includes(parseInt(cur))) daySel.value = cur;
+        else daySel.value = '';
+        dayFilter = daySel.value;
+    };
+    
+    const applyDateFilter = (item) => {
+        if (!item.sold_date) return false;
+        const date = new Date(item.sold_date);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        if (yearFilter && year != parseInt(yearFilter)) return false;
+        if (monthFilter && month != parseInt(monthFilter)) return false;
+        if (dayFilter && day != parseInt(dayFilter)) return false;
+        return true;
+    };
+    
+    const renderSold = () => {
+        const tbody = document.getElementById('soldBody');
+        if (!tbody) return;
+        let filtered = soldItems.filter(applyDateFilter);
+        if (soldSearchKeyword.trim()) {
+            const kw = soldSearchKeyword.trim().toLowerCase();
+            filtered = filtered.filter(r => (r.product_name && r.product_name.toLowerCase().includes(kw)) || (r.buyer && r.buyer.toLowerCase().includes(kw)));
+        }
+        const total = filtered.reduce((s, r) => s + (parseFloat(r.price) || 0), 0);
+        const totalSpan = document.getElementById('soldTotalAmount');
+        if (totalSpan) totalSpan.innerText = total.toFixed(2);
+        if (filtered.length === 0) { 
+            tbody.innerHTML = '<tr class="loading-row"><td colspan="8">No sold items. </td></tr>';
+            return; 
+        }
+        let html = '';
+        for (const r of filtered) {
+            html += `<tr>
+                <td>${escapeHtml(r.product_name)}</td>
+                <td>${escapeHtml(r.color)}</td>
+                <td>${escapeHtml(r.specification)}</td>
+                <td>${r.price ?? ''}</td>
+                <td>${escapeHtml(formatPayment(r.payment))}</td>
+                <td>${escapeHtml(r.buyer)}</td>
+                <td>${r.sold_date ? new Date(r.sold_date).toLocaleDateString() : '-'}</td>
+                <td>${escapeHtml(r.notes)}</td>
+            </tr>`;
+        }
+        tbody.innerHTML = html;
+    };
+    
+    const restoreFromLog = async (logId, oldData, actionType) => {
+        if (!oldData) { alert('Cannot restore: missing data'); return; }
+        let msg = `Restore "${oldData.product_name || 'this item'}"?`;
+        if (actionType === 'DELETE') msg += ' It will reappear in Active Products.';
+        else if (actionType === 'SELL') msg += ' It will be moved back to Active Products as Available.';
+        if (!confirm(msg)) return;
+        try {
+            if (actionType === 'DELETE') {
+                const { error } = await supabase.from('sales_records').insert([{ ...oldData }]);
+                if (error) throw error;
+            } else if (actionType === 'SELL') {
+                const { error } = await supabase.from('sales_records').update({ selling_status: 'Available', sold_date: null }).eq('id', oldData.id);
+                if (error) throw error;
+            }
+            await supabase.from('operation_logs').delete().eq('id', logId);
+            await loadRecords();
+            if (currentTab === 'logs') await loadLogs();
+            setStatus('↩️ Restored successfully');
+        } catch (err) { alert('Restore failed: ' + err.message); }
+    };
+    
+    const loadLogs = async () => {
+        try {
+            const { data, error } = await supabase.from('operation_logs').select('*').order('created_at', { ascending: false }).limit(500);
+            if (error) throw error;
+            allLogs = data || [];
+            const logBody = document.getElementById('logBody');
+            if (!logBody) return;
+            if (allLogs.length === 0) { logBody.innerHTML = '<tr class="loading-row"><td colspan="6">No logs yet.</td></tr>'; return; }
+            let html = '';
+            for (const log of allLogs) {
+                const pName = log.new_data?.product_name || log.old_data?.product_name || 'Unknown';
+                let details = '', rowClass = '';
+                if (log.action_type === 'INSERT') { details = '➕ Created new product'; rowClass = 'log-row-insert'; }
+                else if (log.action_type === 'DELETE') { details = '🗑️ Permanently deleted'; rowClass = 'log-row-delete'; }
+                else if (log.action_type === 'SELL') { details = '💰 Marked as Sold'; rowClass = 'log-row-sell'; }
+                else if (log.action_type === 'UPDATE' && log.changed_fields) {
+                    details = '✏️ ' + log.changed_fields.map(f => {
+                        let oldV = log.old_data?.[f] ?? '-', newV = log.new_data?.[f] ?? '-';
+                        if (f === 'price') { oldV = `$${oldV}`; newV = `$${newV}`; }
+                        return `${f}: ${escapeHtml(String(oldV))} → ${escapeHtml(String(newV))}`;
+                    }).join(' · ');
+                    rowClass = 'log-row-update';
+                }
+                const showRestore = (log.action_type === 'DELETE' || log.action_type === 'SELL') && log.old_data && log.id;
+                const restoreHtml = showRestore ? `<button class="restore-btn" data-id="${log.id}" data-data='${JSON.stringify(log.old_data).replace(/'/g, "&#39;")}' data-action="${log.action_type}">↩️ Restore</button>` : '-';
+                html += `<tr class="${rowClass}">
+                    <td>${new Date(log.created_at).toLocaleString()}</td>
+                    <td><strong>${escapeHtml(pName)}</strong></td>
+                    <td>${log.action_type}</td>
+                    <td class="log-change-detail">${details}</td>
+                    <td>system</td>
+                    <td>${restoreHtml}</td>
+                </tr>`;
+            }
+            logBody.innerHTML = html;
+            document.querySelectorAll('.restore-btn').forEach(btn => {
+                btn.onclick = async () => {
+                    const id = parseInt(btn.dataset.id);
+                    const oldData = JSON.parse(btn.dataset.data);
+                    const actionType = btn.dataset.action;
+                    await restoreFromLog(id, oldData, actionType);
+                };
+            });
+        } catch(e) { console.error(e); }
+    };
+    
+    const sellProduct = async (record) => {
+        if (!confirm(`Sell "${record.product_name}"? It will move to Sold Items with today's date.`)) return;
+        const today = new Date().toISOString().split('T')[0];
+        const oldCopy = { ...record };
+        const { error } = await supabase.from('sales_records').update({ selling_status: 'Sold', sold_date: today }).eq('id', record.id);
+        if (error) { alert('Failed: ' + error.message); return; }
+        await logOp(record.id, 'SELL', oldCopy, { selling_status: 'Sold', sold_date: today, product_name: record.product_name }, ['selling_status'], record.product_name);
+        await loadRecords();
+        setStatus('💰 Marked as sold');
+    };
+    
+    const deleteRecord = async (record) => {
+        if (!confirm(`Delete "${record.product_name}" permanently? You can restore from Log.`)) return;
+        const oldCopy = { ...record };
+        // 如果有图片，删除图片
+        if (record.image_url) {
+            try {
+                const filePath = record.image_url.split('/').pop();
+                await supabase.storage.from(STORAGE_BUCKET).remove([filePath]);
+            } catch(e) { console.warn('Delete image error:', e); }
+        }
+        const { error } = await supabase.from('sales_records').delete().eq('id', record.id);
+        if (error) { alert('Delete failed: ' + error.message); return; }
+        await logOp(record.id, 'DELETE', oldCopy, null, null, record.product_name);
+        await loadRecords();
+        setStatus('🗑️ Deleted');
+    };
+    
+    const updateField = async (id, field, oldVal, newVal, pName) => {
+        const update = {}; update[field] = (newVal === '' || newVal === null) ? null : newVal;
+        if (field === 'selling_status' && newVal === 'Sold') update.sold_date = new Date().toISOString().split('T')[0];
+        const oldCopy = {}; oldCopy[field] = oldVal;
+        const newCopy = {}; newCopy[field] = newVal;
+        const { error } = await supabase.from('sales_records').update(update).eq('id', id);
+        if (error) throw error;
+        await logOp(id, 'UPDATE', oldCopy, newCopy, [field], pName);
+        await loadRecords();
+        setStatus('✅ Updated');
+    };
+    
+    const renderTable = () => {
+        const tbody = document.getElementById('tableBody');
+        if (!tbody) return;
+        let filtered = allRecords;
+        if (searchKeyword.trim()) {
+            const kw = searchKeyword.trim().toLowerCase();
+            filtered = allRecords.filter(r => (r.product_name && r.product_name.toLowerCase().includes(kw)) || (r.buyer && r.buyer.toLowerCase().includes(kw)));
+        }
+        const sorted = sortRecords(filtered);
+        if (sorted.length === 0) { tbody.innerHTML = '<tr class="loading-row"><td colspan="12">✨ No active products. Click "Add Product".  </tbody>'; return; }
+        let html = '';
+        for (const record of sorted) {
+            const checked = selectedRecordIds.has(record.id);
+            const imageHtml = record.image_url ? `<img src="${record.image_url}" class="product-image-thumb" onclick="window.open('${record.image_url}','_blank')" title="Click to view full size">` : '📷 No image';
+            html += `
+                <tr data-id="${record.id}" class="${checked ? 'selected-row' : ''}">
+                    <td class="checkbox-col"><input type="checkbox" class="row-checkbox" data-id="${record.id}" ${checked ? 'checked' : ''}></td>
+                    <td><span class="editable-cell" data-field="product_name" data-id="${record.id}">${escapeHtml(record.product_name)}</span></td>
+                    <td><span class="editable-cell" data-field="color" data-id="${record.id}">${escapeHtml(record.color)}</span></td>
+                    <td><span class="editable-cell" data-field="specification" data-id="${record.id}">${escapeHtml(record.specification)}</span></td>
+                    <td><span class="editable-cell" data-field="price" data-id="${record.id}">${record.price ?? ''}</span></td>
+                    <td><span class="editable-cell" data-field="payment" data-id="${record.id}">${escapeHtml(formatPayment(record.payment))}</span></td>
+                    <td><span class="editable-cell" data-field="buyer" data-id="${record.id}">${escapeHtml(record.buyer)}</span></td>
+                    <td><span class="editable-cell status-badge ${getSellingClass(record.selling_status)}" data-field="selling_status" data-id="${record.id}">${formatSelling(record.selling_status)}</span></td>
+                    <td><span class="editable-cell" data-field="delivery_status" data-id="${record.id}">${formatDelivery(record.delivery_status)}</span></td>
+                    <td><span class="editable-cell" data-field="notes" data-id="${record.id}">${escapeHtml(record.notes)}</span></td>
+                    <td>${imageHtml}</td>
+                    <td>
+                        <button class="action-btn sell-btn" data-id="${record.id}">💰 Sell</button>
+                        <button class="action-btn delete-btn" data-id="${record.id}">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        }
+        tbody.innerHTML = html;
+        attachEvents();
+        const cb = document.getElementById('selectAllCheckbox');
+        if (cb) {
+            const visible = sorted;
+            cb.checked = visible.length > 0 && visible.every(r => selectedRecordIds.has(r.id));
+            cb.indeterminate = selectedRecordIds.size > 0 && selectedRecordIds.size < visible.length;
+        }
+    };
+    
+    const attachEvents = () => {
+        document.querySelectorAll('.editable-cell').forEach(cell => {
+            cell.removeEventListener('click', cell._handler);
+            cell._handler = async (e) => {
+                e.stopPropagation();
+                if (cell.querySelector('input') || cell.querySelector('select')) return;
+                const field = cell.dataset.field, id = parseInt(cell.dataset.id);
+                const record = allRecords.find(r => r.id === id);
+                if (!record) return;
+                if (['payment','selling_status','delivery_status'].includes(field)) {
+                    let opts, cur;
+                    if (field === 'payment') { opts = ['Cash','Alipay','WeChat','eTransfer','Card']; cur = record.payment || ''; }
+                    else if (field === 'selling_status') { opts = ['Available','Reserved']; cur = record.selling_status || ''; }
+                    else { opts = ['Arrived','Pending','Shipped','Cancelled']; cur = record.delivery_status || ''; }
+                    const sel = document.createElement('select'); sel.className = 'cell-select';
+                    sel.innerHTML = '<option value="">-- Select --</option>' + opts.map(o => `<option value="${o}" ${o === cur ? 'selected' : ''}>${o}</option>`).join('');
+                    cell.innerHTML = ''; cell.appendChild(sel); sel.focus();
+                    const save = async () => {
+                        const newVal = sel.value;
+                        let display = field === 'payment' ? formatPayment(newVal) : (field === 'selling_status' ? formatSelling(newVal) : formatDelivery(newVal));
+                        let old = record[field] || '';
+                        cell.innerHTML = display;
+                        if (field === 'selling_status') cell.className = `editable-cell status-badge ${getSellingClass(newVal)}`;
+                        if (newVal !== old) await updateField(id, field, old, newVal, record.product_name);
+                        attachEvents();
+                    };
+                    sel.addEventListener('blur', save); sel.addEventListener('change', save);
+                    return;
+                }
+                const orig = cell.innerText;
+                const input = document.createElement('input'); input.className = 'cell-input';
+                if (field === 'price') input.value = record.price ?? '';
+                else input.value = orig;
+                cell.innerHTML = ''; cell.appendChild(input); input.focus();
+                const save = async () => {
+                    let newVal = input.value.trim();
+                    if (field === 'price') { newVal = newVal === '' ? null : parseFloat(newVal); if (isNaN(newVal)) newVal = null; cell.innerHTML = newVal !== null ? newVal : ''; }
+                    else { cell.innerHTML = escapeHtml(newVal) || '&nbsp;'; }
+                    let old = field === 'price' ? record.price : (record[field] || '');
+                    if (newVal !== old) await updateField(id, field, old, newVal, record.product_name);
+                    attachEvents();
+                };
+                input.addEventListener('blur', save); input.addEventListener('keypress', (e) => { if (e.key === 'Enter') save(); });
+            };
+            cell.addEventListener('click', cell._handler);
+        });
+        
+        document.querySelectorAll('.sell-btn').forEach(btn => {
+            btn.onclick = async () => { const id = parseInt(btn.dataset.id); const record = allRecords.find(r => r.id === id); if (record) await sellProduct(record); };
+        });
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.onclick = async () => { const id = parseInt(btn.dataset.id); const record = allRecords.find(r => r.id === id); if (record) await deleteRecord(record); };
+        });
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+            cb.onchange = () => { const id = parseInt(cb.dataset.id); if (cb.checked) selectedRecordIds.add(id); else selectedRecordIds.delete(id); renderTable(); };
+        });
+    };
+    
+    const batchDelete = async () => {
+        if (selectedRecordIds.size === 0) { alert('No records selected.'); return; }
+        const ids = Array.from(selectedRecordIds);
+        const toDelete = allRecords.filter(r => ids.includes(r.id));
+        if (!confirm(`Delete ${toDelete.length} product(s)? They can be restored from Log.`)) return;
+        for (const rec of toDelete) await deleteRecord(rec);
+        selectedRecordIds.clear(); const cb = document.getElementById('selectAllCheckbox'); if (cb) cb.checked = false;
+        await loadRecords();
+    };
+    
+    const openModal = (record = null) => {
+        const title = document.getElementById('modalTitle');
+        const editId = document.getElementById('editId');
+        // 重置图片上传状态
+        tempImageFile = null;
+        tempImageUrl = '';
+        imagePlaceholder.style.display = 'block';
+        imagePreview.style.display = 'none';
+        previewImg.src = '';
+        imageInput.value = '';
+        imageUrlInput.value = '';
+        
+        if (record) {
+            title.innerText = 'Edit Product';
+            editId.value = record.id;
+            document.getElementById('modalProduct').value = record.product_name || '';
+            document.getElementById('modalColor').value = record.color || '';
+            document.getElementById('modalSpec').value = record.specification || '';
+            document.getElementById('modalPrice').value = record.price ?? '';
+            document.getElementById('modalPayment').value = record.payment || '';
+            document.getElementById('modalBuyer').value = record.buyer || '';
+            document.getElementById('modalSellingStatus').value = record.selling_status || '';
+            document.getElementById('modalDeliveryStatus').value = record.delivery_status || '';
+            document.getElementById('modalNotes').value = record.notes || '';
+            if (record.image_url) {
+                tempImageUrl = record.image_url;
+                previewImg.src = record.image_url;
+                imagePlaceholder.style.display = 'none';
+                imagePreview.style.display = 'block';
+                imageUrlInput.value = record.image_url;
+            }
+        } else {
+            title.innerText = 'New Product';
+            editId.value = '';
+            document.getElementById('modalProduct').value = '';
+            document.getElementById('modalColor').value = '';
+            document.getElementById('modalSpec').value = '';
+            document.getElementById('modalPrice').value = '';
+            document.getElementById('modalPayment').value = '';
+            document.getElementById('modalBuyer').value = '';
+            document.getElementById('modalSellingStatus').value = '';
+            document.getElementById('modalDeliveryStatus').value = '';
+            document.getElementById('modalNotes').value = '';
+        }
+        document.getElementById('recordModal').style.display = 'flex';
+    };
+    
+    const saveRecord = async () => {
+        const id = document.getElementById('editId').value;
+        const pName = document.getElementById('modalProduct').value.trim();
+        if (!pName) { alert('Product name required'); return; }
+        
+        let imageUrl = imageUrlInput.value || '';
+        
+        // 如果有新图片上传，先上传到 Storage
+        if (tempImageFile) {
+            try {
+                setStatus('📤 Uploading image...');
+                imageUrl = await uploadImage(tempImageFile, pName);
+                setStatus('✅ Image uploaded');
+            } catch (err) {
+                alert('Image upload failed: ' + err.message);
+                return;
+            }
+        }
+        
+        const payload = {
+            product_name: pName,
+            color: document.getElementById('modalColor').value.trim() || null,
+            specification: document.getElementById('modalSpec').value.trim() || null,
+            price: document.getElementById('modalPrice').value ? parseFloat(document.getElementById('modalPrice').value) : null,
+            payment: document.getElementById('modalPayment').value || null,
+            buyer: document.getElementById('modalBuyer').value.trim() || null,
+            selling_status: document.getElementById('modalSellingStatus').value || null,
+            delivery_status: document.getElementById('modalDeliveryStatus').value || null,
+            notes: document.getElementById('modalNotes').value.trim() || null,
+            image_url: imageUrl || null,
+        };
+        if (id) {
+            const old = allRecords.find(r => r.id === parseInt(id));
+            const { error } = await supabase.from('sales_records').update(payload).eq('id', parseInt(id));
+            if (error) alert('Update failed: ' + error.message);
+            else { await logOp(parseInt(id), 'UPDATE', old, payload, ['product_name','selling_status','delivery_status'], pName); closeModal(); loadRecords(); setStatus('✏️ Updated'); }
+        } else {
+            const { data, error } = await supabase.from('sales_records').insert([payload]).select();
+            if (error) alert('Add failed: ' + error.message);
+            else if (data && data[0]) { await logOp(data[0].id, 'INSERT', null, payload, null, pName); closeModal(); loadRecords(); setStatus('➕ Added'); }
+        }
+    };
+    
+    const closeModal = () => { document.getElementById('recordModal').style.display = 'none'; };
+    
+    const applySort = () => {
+        const field = document.getElementById('sortFieldSelect').value;
+        setSort(field, sortOrder === 'desc' ? 'asc' : sortOrder);
+    };
+    
+    const onFilterChange = () => {
+        yearFilter = document.getElementById('yearFilter')?.value || '';
+        monthFilter = document.getElementById('monthFilter')?.value || '';
+        updateDayOptions();
+        dayFilter = document.getElementById('dayFilter')?.value || '';
+        renderSold();
+    };
+    
+    const clearAllFilters = () => {
+        const yf = document.getElementById('yearFilter'); if (yf) yf.value = '';
+        const mf = document.getElementById('monthFilter'); if (mf) mf.value = '';
+        const df = document.getElementById('dayFilter'); if (df) df.value = '';
+        yearFilter = monthFilter = dayFilter = '';
+        renderSold();
+    };
+    
+    const switchTab = (tab) => {
+        currentTab = tab;
+        const rp = document.getElementById('recordsPanel'), sp = document.getElementById('soldPanel'), lp = document.getElementById('logsPanel');
+        if (rp) rp.style.display = tab === 'records' ? 'block' : 'none';
+        if (sp) sp.style.display = tab === 'sold' ? 'block' : 'none';
+        if (lp) lp.style.display = tab === 'logs' ? 'block' : 'none';
+        document.querySelectorAll('.nav-tab').forEach(btn => { if (btn.dataset.tab === tab) btn.classList.add('active'); else btn.classList.remove('active'); });
+        if (tab === 'records') loadRecords();
+        if (tab === 'sold') { updateFilterOptions(); renderSold(); }
+        if (tab === 'logs') loadLogs();
+    };
+    
+    const init = () => {
+        document.getElementById('openAddModalBtn')?.addEventListener('click', () => openModal(null));
+        document.getElementById('closeModalBtn')?.addEventListener('click', closeModal);
+        document.getElementById('saveRecordBtn')?.addEventListener('click', saveRecord);
+        document.getElementById('batchDeleteBtn')?.addEventListener('click', batchDelete);
+        document.getElementById('refreshSoldBtn')?.addEventListener('click', () => { updateFilterOptions(); renderSold(); });
+        document.getElementById('refreshLogsBtn')?.addEventListener('click', loadLogs);
+        document.getElementById('sortFieldSelect')?.addEventListener('change', applySort);
+        document.getElementById('sortAscBtn')?.addEventListener('click', () => { setSort(document.getElementById('sortFieldSelect').value, 'asc'); });
+        document.getElementById('sortDescBtn')?.addEventListener('click', () => { setSort(document.getElementById('sortFieldSelect').value, 'desc'); });
+        document.getElementById('sortNoneBtn')?.addEventListener('click', stopSort);
+        document.getElementById('yearFilter')?.addEventListener('change', onFilterChange);
+        document.getElementById('monthFilter')?.addEventListener('change', onFilterChange);
+        document.getElementById('dayFilter')?.addEventListener('change', () => { dayFilter = document.getElementById('dayFilter')?.value || ''; renderSold(); });
+        document.getElementById('clearDateFiltersBtn')?.addEventListener('click', clearAllFilters);
+        document.getElementById('searchInput')?.addEventListener('input', (e) => { searchKeyword = e.target.value; renderTable(); });
+        document.getElementById('soldSearchInput')?.addEventListener('input', (e) => { soldSearchKeyword = e.target.value; renderSold(); });
+        document.getElementById('logSearchInput')?.addEventListener('input', (e) => { logSearchKeyword = e.target.value; loadLogs(); });
+        document.getElementById('selectAllCheckbox')?.addEventListener('change', (e) => {
+            const visible = allRecords.filter(r => !searchKeyword.trim() || (r.product_name && r.product_name.toLowerCase().includes(searchKeyword.trim().toLowerCase())));
+            if (e.target.checked) visible.forEach(r => selectedRecordIds.add(r.id));
+            else selectedRecordIds.clear();
+            renderTable();
+        });
+        document.querySelectorAll('.nav-tab').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+        const rw = document.getElementById('recordsTableWrapper');
+        if (rw) rw.addEventListener('wheel', (e) => { if (e.shiftKey) { e.preventDefault(); rw.scrollBy({ left: e.deltaY * 2.5, behavior: 'auto' }); } });
+        switchTab('records');
+        setInterval(() => { if (currentTab === 'records') loadRecords(); if (currentTab === 'logs') loadLogs(); }, 30000);
+    };
+    
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+})();
+</script>
+</body>
+</html>
