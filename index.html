@@ -396,9 +396,22 @@
     const SUPABASE_URL = 'https://wkjdurwdgxqnublysanb.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndramR1cndkZ3hxbnVibHlzYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4OTA1OTgsImV4cCI6MjA5NjQ2NjU5OH0.cgsUNJKzgM0jq5zX9_Ctwy86oe_vGas_9yRg1DZh6Tg';
     
+    // 修复：正确初始化Supabase客户端
     let supabase;
-    if (!window._supabaseClient) window._supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    supabase = window._supabaseClient;
+    try {
+        if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+            if (!window._supabaseClient) {
+                window._supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+            supabase = window._supabaseClient;
+        } else {
+            throw new Error('Supabase library not loaded');
+        }
+    } catch (e) {
+        console.error('Supabase initialization error:', e);
+        alert('Failed to initialize database connection. Please check your internet connection and reload.');
+        return;
+    }
     
     const STORAGE_BUCKET = 'product-images';
     let allRecords = [], allLogs = [], soldItems = [];
@@ -428,7 +441,7 @@
     const imageModalImg = document.getElementById('imageModalImg');
     const imageModalNoImage = document.getElementById('imageModalNoImage');
     const imageModalProductId = document.getElementById('imageModalProductId');
-    const imageModalCurrentUrl = document.getElementById('imageModalCurrentUrl');
+    imageModalCurrentUrl = document.getElementById('imageModalCurrentUrl');
     const imageModalInput = document.getElementById('imageModalInput');
     const imageModalRemoveBtn = document.getElementById('imageModalRemoveBtn');
     const imageModalTitle = document.getElementById('imageModalTitle');
@@ -439,7 +452,16 @@
     const formatPayment = (p) => { if (!p) return '-'; const map = { 'Cash': '💵 Cash', 'Alipay': '📱 Alipay', 'WeChat': '💬 WeChat', 'eTransfer': '🏦 eTransfer', 'Card': '💳 Card' }; return map[p] || p; };
     const getSellingClass = (s) => { if (s === 'Reserved') return 'status-reserved'; if (s === 'Available') return 'status-available'; return ''; };
     const escapeHtml = (str) => { if (!str) return ''; return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); };
-    const setStatus = (text, isErr = false) => { const el = document.getElementById('syncStatus'); if (el) { el.innerHTML = text; el.style.backgroundColor = isErr ? '#dc2626' : '#2b6e4f'; setTimeout(() => { if (!isErr && el.innerHTML === text) el.innerHTML = '✅ Synced'; }, 2000); } };
+    const setStatus = (text, isErr = false) => { 
+        const el = document.getElementById('syncStatus'); 
+        if (el) { 
+            el.innerHTML = text; 
+            el.style.backgroundColor = isErr ? '#dc2626' : '#2b6e4f'; 
+            setTimeout(() => { 
+                if (!isErr && el.innerHTML === text) el.innerHTML = '✅ Synced'; 
+            }, 2000); 
+        } 
+    };
     
     // ========== Image Upload Functions ==========
     
@@ -503,32 +525,39 @@
     
     // ========== Main Modal Image Upload ==========
     
-    imageUploadArea.addEventListener('click', function(e) {
-        if (e.target === removeImageBtn) return;
-        imageInput.click();
-    });
+    if (imageUploadArea) {
+        imageUploadArea.addEventListener('click', function(e) {
+            if (e.target === removeImageBtn) return;
+            imageInput.click();
+        });
+    }
     
-    imageInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        tempImageFile = file;
-        handleFileSelect(file, previewImg, imagePlaceholder, imagePreview);
-    });
+    if (imageInput) {
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            tempImageFile = file;
+            handleFileSelect(file, previewImg, imagePlaceholder, imagePreview);
+        });
+    }
     
-    removeImageBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        tempImageFile = null;
-        tempImageUrl = '';
-        imagePlaceholder.style.display = 'block';
-        imagePreview.style.display = 'none';
-        previewImg.src = '';
-        imageInput.value = '';
-        imageUrlInput.value = '';
-    });
+    if (removeImageBtn) {
+        removeImageBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            tempImageFile = null;
+            tempImageUrl = '';
+            imagePlaceholder.style.display = 'block';
+            imagePreview.style.display = 'none';
+            previewImg.src = '';
+            imageInput.value = '';
+            imageUrlInput.value = '';
+        });
+    }
     
-    // ========== Image Modal (click on image column) ==========
+    // ========== Image Modal Functions ==========
     
-    function openImageModal(recordId, productName, currentImageUrl) {
+    // 修复：将函数挂载到window对象以便在HTML中调用
+    window.openImageModal = function(recordId, productName, currentImageUrl) {
         imageModalRecordId = recordId;
         imageModalCurrentUrl = currentImageUrl || '';
         imageModalProductId.value = recordId;
@@ -550,7 +579,7 @@
         // Reset file input
         imageModalInput.value = '';
         imageModal.style.display = 'flex';
-    }
+    };
     
     function closeImageModal() {
         imageModal.style.display = 'none';
@@ -558,83 +587,95 @@
     }
     
     // Image modal - click to upload
-    imageModalUploadArea.addEventListener('click', function(e) {
-        imageModalInput.click();
-    });
+    if (imageModalUploadArea) {
+        imageModalUploadArea.addEventListener('click', function(e) {
+            imageModalInput.click();
+        });
+    }
     
-    imageModalInput.addEventListener('change', async function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        const productId = parseInt(imageModalProductId.value);
-        const product = allRecords.find(r => r.id === productId);
-        if (!product) return;
-        
-        try {
-            setStatus('📤 Uploading image...');
-            const imageUrl = await uploadImage(file, product.product_name);
+    if (imageModalInput) {
+        imageModalInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
             
-            // Update database
-            const { error } = await supabase
-                .from('sales_records')
-                .update({ image_url: imageUrl })
-                .eq('id', productId);
-            if (error) throw error;
-            
-            // Update local data
-            const idx = allRecords.findIndex(r => r.id === productId);
-            if (idx !== -1) allRecords[idx].image_url = imageUrl;
-            
-            // Update UI
-            imageModalImg.src = imageUrl;
-            imageModalImg.style.display = 'block';
-            imageModalNoImage.style.display = 'none';
-            imageModalRemoveBtn.style.display = 'inline-block';
-            imageModalCurrentUrl = imageUrl;
-            
-            setStatus('✅ Image uploaded');
-            renderTable();
-            closeImageModal();
-        } catch (err) {
-            alert('Upload failed: ' + err.message);
-            setStatus('❌ ' + err.message, true);
-        }
-    });
-    
-    // Image modal - remove image
-    imageModalRemoveBtn.addEventListener('click', async function() {
-        const productId = parseInt(imageModalProductId.value);
-        if (!confirm('Remove this image?')) return;
-        
-        try {
-            if (imageModalCurrentUrl) {
-                await deleteImageFromStorage(imageModalCurrentUrl);
+            const productId = parseInt(imageModalProductId.value);
+            const product = allRecords.find(r => r.id === productId);
+            if (!product) {
+                alert('Product not found. Please refresh the page.');
+                return;
             }
             
-            const { error } = await supabase
-                .from('sales_records')
-                .update({ image_url: null })
-                .eq('id', productId);
-            if (error) throw error;
+            try {
+                setStatus('📤 Uploading image...');
+                const imageUrl = await uploadImage(file, product.product_name);
+                
+                // Update database
+                const { error } = await supabase
+                    .from('sales_records')
+                    .update({ image_url: imageUrl })
+                    .eq('id', productId);
+                if (error) throw error;
+                
+                // Update local data
+                const idx = allRecords.findIndex(r => r.id === productId);
+                if (idx !== -1) allRecords[idx].image_url = imageUrl;
+                
+                // Update UI
+                imageModalImg.src = imageUrl;
+                imageModalImg.style.display = 'block';
+                imageModalNoImage.style.display = 'none';
+                imageModalRemoveBtn.style.display = 'inline-block';
+                imageModalCurrentUrl = imageUrl;
+                
+                setStatus('✅ Image uploaded');
+                renderTable();
+                closeImageModal();
+            } catch (err) {
+                alert('Upload failed: ' + err.message);
+                setStatus('❌ ' + err.message, true);
+            }
+        });
+    }
+    
+    // Image modal - remove image
+    if (imageModalRemoveBtn) {
+        imageModalRemoveBtn.addEventListener('click', async function() {
+            const productId = parseInt(imageModalProductId.value);
+            if (!confirm('Remove this image?')) return;
             
-            const idx = allRecords.findIndex(r => r.id === productId);
-            if (idx !== -1) allRecords[idx].image_url = null;
-            
-            imageModalImg.style.display = 'none';
-            imageModalNoImage.style.display = 'block';
-            imageModalRemoveBtn.style.display = 'none';
-            imageModalCurrentUrl = '';
-            
-            setStatus('🗑️ Image removed');
-            renderTable();
-            closeImageModal();
-        } catch (err) {
-            alert('Remove failed: ' + err.message);
-        }
-    });
+            try {
+                if (imageModalCurrentUrl) {
+                    await deleteImageFromStorage(imageModalCurrentUrl);
+                }
+                
+                const { error } = await supabase
+                    .from('sales_records')
+                    .update({ image_url: null })
+                    .eq('id', productId);
+                if (error) throw error;
+                
+                const idx = allRecords.findIndex(r => r.id === productId);
+                if (idx !== -1) allRecords[idx].image_url = null;
+                
+                imageModalImg.style.display = 'none';
+                imageModalNoImage.style.display = 'block';
+                imageModalRemoveBtn.style.display = 'none';
+                imageModalCurrentUrl = '';
+                
+                setStatus('🗑️ Image removed');
+                renderTable();
+                closeImageModal();
+            } catch (err) {
+                alert('Remove failed: ' + err.message);
+            }
+        });
+    }
     
     // Close image modal
-    document.getElementById('imageModalCloseBtn').addEventListener('click', closeImageModal);
+    const imageModalCloseBtn = document.getElementById('imageModalCloseBtn');
+    if (imageModalCloseBtn) {
+        imageModalCloseBtn.addEventListener('click', closeImageModal);
+    }
     window.addEventListener('click', function(e) {
         if (e.target === imageModal) closeImageModal();
     });
@@ -694,7 +735,7 @@
             if (pName && (type === 'UPDATE' || type === 'SELL')) newStore = { ...(newD || {}), product_name: pName };
             await supabase.from('operation_logs').insert([{ record_id: rid, action_type: type, old_data: oldD, new_data: newStore, changed_fields: fields, operator: 'system', created_at: new Date() }]);
             if (currentTab === 'logs') await loadLogs();
-        } catch(e) { console.warn(e); }
+        } catch(e) { console.warn('Log error:', e); }
     };
     
     // ========== Data Loading ==========
@@ -711,7 +752,15 @@
             if (currentTab === 'sold') renderSold();
             if (currentTab === 'records') renderTable();
             setStatus(`✅ Active: ${allRecords.length}  Sold: ${soldItems.length}`);
-        } catch (err) { setStatus('❌ ' + err.message, true); }
+        } catch (err) { 
+            console.error('Load error:', err);
+            setStatus('❌ ' + err.message, true); 
+            // 显示更友好的错误信息
+            const tbody = document.getElementById('tableBody');
+            if (tbody) {
+                tbody.innerHTML = `<tr class="loading-row"><td colspan="12">❌ Database connection error: ${err.message}. Please check your internet connection and refresh.</td></tr>`;
+            }
+        }
     };
     
     const updateFilterOptions = () => {
@@ -905,7 +954,7 @@
             filtered = allRecords.filter(r => (r.product_name && r.product_name.toLowerCase().includes(kw)) || (r.buyer && r.buyer.toLowerCase().includes(kw)));
         }
         const sorted = sortRecords(filtered);
-        if (sorted.length === 0) { tbody.innerHTML = '<tr class="loading-row"><td colspan="12">✨ No active products. Click "Add Product".  </tbody>'; return; }
+        if (sorted.length === 0) { tbody.innerHTML = '<tr class="loading-row"><td colspan="12">✨ No active products. Click "Add Product".  </td></tr>'; return; }
         let html = '';
         for (const record of sorted) {
             const checked = selectedRecordIds.has(record.id);
@@ -924,7 +973,7 @@
                     <td><span class="editable-cell status-badge ${getSellingClass(record.selling_status)}" data-field="selling_status" data-id="${record.id}">${formatSelling(record.selling_status)}</span></td>
                     <td><span class="editable-cell" data-field="delivery_status" data-id="${record.id}">${formatDelivery(record.delivery_status)}</span></td>
                     <td><span class="editable-cell" data-field="notes" data-id="${record.id}">${escapeHtml(record.notes)}</span></td>
-                    <td class="image-cell" onclick="openImageModal(${record.id}, '${escapeHtml(record.product_name)}', '${record.image_url || ''}')">
+                    <td class="image-cell" onclick="window.openImageModal(${record.id}, '${escapeHtml(record.product_name)}', '${record.image_url || ''}')">
                         ${imageHtml}
                     </td>
                     <td>
@@ -1135,6 +1184,12 @@
     };
     
     const init = () => {
+        // 检查Supabase是否可用
+        if (!supabase) {
+            alert('Database connection failed. Please check your internet connection and refresh the page.');
+            return;
+        }
+        
         document.getElementById('openAddModalBtn')?.addEventListener('click', () => openModal(null));
         document.getElementById('closeModalBtn')?.addEventListener('click', closeModal);
         document.getElementById('saveRecordBtn')?.addEventListener('click', saveRecord);
