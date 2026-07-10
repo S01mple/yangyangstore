@@ -396,7 +396,6 @@
     const SUPABASE_URL = 'https://wkjdurwdgxqnublysanb.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndramR1cndkZ3hxbnVibHlzYW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4OTA1OTgsImV4cCI6MjA5NjQ2NjU5OH0.cgsUNJKzgM0jq5zX9_Ctwy86oe_vGas_9yRg1DZh6Tg';
     
-    // 修复：正确初始化Supabase客户端
     let supabase;
     try {
         if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
@@ -423,9 +422,9 @@
     let tempImageFile = null;
     let tempImageUrl = '';
     
-    // Image modal variables
+    // Image modal variables - 使用唯一名称避免冲突
     let imageModalRecordId = null;
-    let imageModalCurrentUrl = '';
+    let imageModalCurrentImageUrl = '';  // 存储当前图片URL
     
     // DOM references - main modal
     const imageInput = document.getElementById('imageInput');
@@ -441,11 +440,12 @@
     const imageModalImg = document.getElementById('imageModalImg');
     const imageModalNoImage = document.getElementById('imageModalNoImage');
     const imageModalProductId = document.getElementById('imageModalProductId');
-    imageModalCurrentUrl = document.getElementById('imageModalCurrentUrl');
+    const imageModalCurrentUrlInput = document.getElementById('imageModalCurrentUrl');  // 输入框
     const imageModalInput = document.getElementById('imageModalInput');
     const imageModalRemoveBtn = document.getElementById('imageModalRemoveBtn');
     const imageModalTitle = document.getElementById('imageModalTitle');
     const imageModalUploadArea = document.getElementById('imageModalUploadArea');
+    const imageModalCloseBtn = document.getElementById('imageModalCloseBtn');
     
     const formatSelling = (s) => { if (!s) return '-'; const map = { 'Available': '✅ Available', 'Reserved': '🔒 Reserved' }; return map[s] || s; };
     const formatDelivery = (s) => { if (!s) return '-'; const map = { 'Arrived': '📦 Arrived', 'Pending': '⏳ Pending', 'Shipped': '🚚 Shipped', 'Cancelled': '❌ Cancelled' }; return map[s] || s; };
@@ -556,12 +556,11 @@
     
     // ========== Image Modal Functions ==========
     
-    // 修复：将函数挂载到window对象以便在HTML中调用
     window.openImageModal = function(recordId, productName, currentImageUrl) {
         imageModalRecordId = recordId;
-        imageModalCurrentUrl = currentImageUrl || '';
+        imageModalCurrentImageUrl = currentImageUrl || '';
         imageModalProductId.value = recordId;
-        imageModalCurrentUrl.value = imageModalCurrentUrl;
+        imageModalCurrentUrlInput.value = imageModalCurrentImageUrl;
         imageModalTitle.innerText = `📸 ${productName}`;
         
         // Show/hide image preview
@@ -570,6 +569,7 @@
             imageModalImg.style.display = 'block';
             imageModalNoImage.style.display = 'none';
             imageModalRemoveBtn.style.display = 'inline-block';
+            imageModalRemoveBtn.textContent = '🗑️ Remove Image';
         } else {
             imageModalImg.style.display = 'none';
             imageModalNoImage.style.display = 'block';
@@ -605,31 +605,43 @@
                 return;
             }
             
+            // 如果已有图片，先删除旧图片
+            if (imageModalCurrentImageUrl) {
+                try {
+                    await deleteImageFromStorage(imageModalCurrentImageUrl);
+                } catch (err) {
+                    console.warn('Delete old image error:', err);
+                }
+            }
+            
             try {
-                setStatus('📤 Uploading image...');
-                const imageUrl = await uploadImage(file, product.product_name);
+                setStatus('📤 Uploading new image...');
+                const newImageUrl = await uploadImage(file, product.product_name);
                 
                 // Update database
                 const { error } = await supabase
                     .from('sales_records')
-                    .update({ image_url: imageUrl })
+                    .update({ image_url: newImageUrl })
                     .eq('id', productId);
                 if (error) throw error;
                 
                 // Update local data
                 const idx = allRecords.findIndex(r => r.id === productId);
-                if (idx !== -1) allRecords[idx].image_url = imageUrl;
+                if (idx !== -1) {
+                    allRecords[idx].image_url = newImageUrl;
+                }
                 
                 // Update UI
-                imageModalImg.src = imageUrl;
+                imageModalImg.src = newImageUrl;
                 imageModalImg.style.display = 'block';
                 imageModalNoImage.style.display = 'none';
                 imageModalRemoveBtn.style.display = 'inline-block';
-                imageModalCurrentUrl = imageUrl;
+                imageModalRemoveBtn.textContent = '🗑️ Remove Image';
+                imageModalCurrentImageUrl = newImageUrl;
+                imageModalCurrentUrlInput.value = newImageUrl;
                 
-                setStatus('✅ Image uploaded');
+                setStatus('✅ Image replaced');
                 renderTable();
-                closeImageModal();
             } catch (err) {
                 alert('Upload failed: ' + err.message);
                 setStatus('❌ ' + err.message, true);
@@ -641,11 +653,11 @@
     if (imageModalRemoveBtn) {
         imageModalRemoveBtn.addEventListener('click', async function() {
             const productId = parseInt(imageModalProductId.value);
-            if (!confirm('Remove this image?')) return;
+            if (!confirm('Remove this image permanently?')) return;
             
             try {
-                if (imageModalCurrentUrl) {
-                    await deleteImageFromStorage(imageModalCurrentUrl);
+                if (imageModalCurrentImageUrl) {
+                    await deleteImageFromStorage(imageModalCurrentImageUrl);
                 }
                 
                 const { error } = await supabase
@@ -655,24 +667,26 @@
                 if (error) throw error;
                 
                 const idx = allRecords.findIndex(r => r.id === productId);
-                if (idx !== -1) allRecords[idx].image_url = null;
+                if (idx !== -1) {
+                    allRecords[idx].image_url = null;
+                }
                 
                 imageModalImg.style.display = 'none';
                 imageModalNoImage.style.display = 'block';
                 imageModalRemoveBtn.style.display = 'none';
-                imageModalCurrentUrl = '';
+                imageModalCurrentImageUrl = '';
+                imageModalCurrentUrlInput.value = '';
                 
                 setStatus('🗑️ Image removed');
                 renderTable();
-                closeImageModal();
             } catch (err) {
                 alert('Remove failed: ' + err.message);
+                setStatus('❌ ' + err.message, true);
             }
         });
     }
     
     // Close image modal
-    const imageModalCloseBtn = document.getElementById('imageModalCloseBtn');
     if (imageModalCloseBtn) {
         imageModalCloseBtn.addEventListener('click', closeImageModal);
     }
@@ -755,7 +769,6 @@
         } catch (err) { 
             console.error('Load error:', err);
             setStatus('❌ ' + err.message, true); 
-            // 显示更友好的错误信息
             const tbody = document.getElementById('tableBody');
             if (tbody) {
                 tbody.innerHTML = `<tr class="loading-row"><td colspan="12">❌ Database connection error: ${err.message}. Please check your internet connection and refresh.</td></tr>`;
@@ -1184,7 +1197,6 @@
     };
     
     const init = () => {
-        // 检查Supabase是否可用
         if (!supabase) {
             alert('Database connection failed. Please check your internet connection and refresh the page.');
             return;
