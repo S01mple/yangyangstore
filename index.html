@@ -26,23 +26,24 @@
         .sort-selector button { background: #f1f5f9; border: none; padding: 4px 10px; border-radius: 30px; font-size: 0.7rem; cursor: pointer; margin-left: 4px; }
         .sort-selector button.active-sort { background: #2563eb; color: white; }
         .table-wrapper { background: white; border-radius: 20px; overflow-x: auto; border: 1px solid #eef2f6; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 1300px; table-layout: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 1350px; table-layout: auto; }
         th { text-align: left; padding: 14px 12px; background: #f8fafc; font-weight: 600; color: #334155; border-bottom: 2px solid #e2e8f0; position: sticky; top: 0; white-space: nowrap; }
         td { padding: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
         tr:hover td { background-color: #fefce8; }
         .selected-row td { background-color: #dbeafe; }
         
         .checkbox-col { width: 32px; text-align: center; }
-        #dataTable th:nth-child(2), #dataTable td:nth-child(2) { min-width: 140px; }
+        #dataTable th:nth-child(2), #dataTable td:nth-child(2) { min-width: 120px; }
         #dataTable th:nth-child(3), #dataTable td:nth-child(3) { min-width: 80px; }
-        #dataTable th:nth-child(4), #dataTable td:nth-child(4) { min-width: 180px; }
+        #dataTable th:nth-child(4), #dataTable td:nth-child(4) { min-width: 150px; }
         #dataTable th:nth-child(5), #dataTable td:nth-child(5) { min-width: 70px; }
         #dataTable th:nth-child(6), #dataTable td:nth-child(6) { min-width: 100px; }
         #dataTable th:nth-child(7), #dataTable td:nth-child(7) { min-width: 100px; }
         #dataTable th:nth-child(8), #dataTable td:nth-child(8) { min-width: 110px; }
         #dataTable th:nth-child(9), #dataTable td:nth-child(9) { min-width: 100px; }
         #dataTable th:nth-child(10), #dataTable td:nth-child(10) { min-width: 120px; }
-        #dataTable th:nth-child(11), #dataTable td:nth-child(11) { min-width: 110px; }
+        #dataTable th:nth-child(11), #dataTable td:nth-child(11) { min-width: 80px; }
+        #dataTable th:nth-child(12), #dataTable td:nth-child(12) { min-width: 110px; }
         
         #soldTable th:nth-child(1), #soldTable td:nth-child(1) { min-width: 200px; width: 200px; }
         #soldTable th:nth-child(2), #soldTable td:nth-child(2) { min-width: 100px; }
@@ -120,7 +121,6 @@
         .filter-group label { font-size: 0.75rem; color: #64748b; }
         .filter-separator { color: #cbd5e1; padding: 0 4px; }
         
-        /* 图片上传样式 */
         .image-upload-area {
             border: 2px dashed #cbd5e1;
             border-radius: 16px;
@@ -177,9 +177,39 @@
             object-fit: cover;
             border-radius: 6px;
             cursor: pointer;
+            border: 1px solid #e2e8f0;
+            transition: opacity 0.2s;
         }
         .product-image-thumb:hover {
             opacity: 0.8;
+        }
+        .image-cell {
+            cursor: pointer;
+            text-align: center;
+            padding: 8px;
+        }
+        .image-cell:hover {
+            background-color: #eef2ff;
+        }
+        .image-cell .placeholder-icon {
+            font-size: 1.5rem;
+            opacity: 0.5;
+        }
+        .image-cell .placeholder-text-small {
+            font-size: 0.6rem;
+            color: #94a3b8;
+            display: block;
+        }
+        
+        /* 图片上传模态框 */
+        .image-modal-content {
+            max-width: 450px;
+        }
+        .image-modal-content .preview-img-large {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 12px;
+            margin: 10px 0;
         }
     </style>
 </head>
@@ -187,13 +217,13 @@
 <div class="container">
     <div class="header">
         <h1>📦 YangYang's Store · Inventory Manager</h1>
-        <div class="badge">Sell with one click | Restore from Log | Product Images</div>
+        <div class="badge">Sell with one click | Click image to add/change photo</div>
     </div>
 
     <div class="nav-tabs">
         <button class="nav-tab active" data-tab="records">📋 Active Products</button>
         <button class="nav-tab" data-tab="sold">💰 Sold Items</button>
-        <button class="nav-tab" data-tab="logs">📜 Activity Log (Restore here)</button>
+        <button class="nav-tab" data-tab="logs">📜 Activity Log</button>
     </div>
 
     <!-- Active Products Panel -->
@@ -223,12 +253,14 @@
                         <th class="checkbox-col"><input type="checkbox" id="selectAllCheckbox"></th>
                         <th>Product</th><th>Color</th><th>Specification</th><th>Price($)</th>
                         <th>Payment</th><th>Buyer</th><th>Selling Status</th><th>Delivery Status</th>
-                        <th>Notes</th><th>Image</th><th>Actions</th>
+                        <th>Notes</th>
+                        <th class="image-cell">Image</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"><tr class="loading-row"><td colspan="12">Loading...  </tbody>
             </table>
-            <div class="scroll-hint">💡 Click "Sell" to mark as sold | Click any cell to edit</div>
+            <div class="scroll-hint">💡 Click the image column to add or change product photo</div>
         </div>
     </div>
 
@@ -289,68 +321,23 @@
 </div>
 <div class="sync-status" id="syncStatus">🔄 Connecting...</div>
 
-<!-- Modal with Image Upload -->
+<!-- Add/Edit Product Modal -->
 <div id="recordModal" class="modal">
     <div class="modal-content">
         <h3 id="modalTitle">New Product</h3>
         <input type="hidden" id="editId">
         <input type="hidden" id="imageUrl">
         
-        <div class="form-row">
-            <label>Product *</label>
-            <input type="text" id="modalProduct" placeholder="Product name">
-        </div>
-        <div class="form-row">
-            <label>Color</label>
-            <input type="text" id="modalColor" placeholder="Color">
-        </div>
-        <div class="form-row">
-            <label>Specification</label>
-            <textarea id="modalSpec" rows="2" placeholder="Size, material..."></textarea>
-        </div>
-        <div class="form-row">
-            <label>Price ($)</label>
-            <input type="number" step="0.01" id="modalPrice" placeholder="Amount">
-        </div>
-        <div class="form-row">
-            <label>Payment</label>
-            <select id="modalPayment">
-                <option value="">-- Select --</option>
-                <option value="Cash">💵 Cash</option>
-                <option value="Alipay">📱 Alipay</option>
-                <option value="WeChat">💬 WeChat</option>
-                <option value="eTransfer">🏦 eTransfer</option>
-                <option value="Card">💳 Card</option>
-            </select>
-        </div>
-        <div class="form-row">
-            <label>Buyer</label>
-            <input type="text" id="modalBuyer" placeholder="Buyer name">
-        </div>
-        <div class="form-row">
-            <label>Selling Status</label>
-            <select id="modalSellingStatus">
-                <option value="">-- Select --</option>
-                <option value="Available">✅ Available</option>
-                <option value="Reserved">🔒 Reserved</option>
-            </select>
-        </div>
-        <div class="form-row">
-            <label>Delivery Status</label>
-            <select id="modalDeliveryStatus">
-                <option value="">-- Select --</option>
-                <option value="Arrived">📦 Arrived</option>
-                <option value="Pending">⏳ Pending</option>
-                <option value="Shipped">🚚 Shipped</option>
-                <option value="Cancelled">❌ Cancelled</option>
-            </select>
-        </div>
-        <div class="form-row">
-            <label>Notes</label>
-            <textarea id="modalNotes" rows="1"></textarea>
-        </div>
+        <div class="form-row"><label>Product *</label><input type="text" id="modalProduct"></div>
+        <div class="form-row"><label>Color</label><input type="text" id="modalColor"></div>
+        <div class="form-row"><label>Specification</label><textarea id="modalSpec" rows="2"></textarea></div>
+        <div class="form-row"><label>Price ($)</label><input type="number" step="0.01" id="modalPrice"></div>
+        <div class="form-row"><label>Payment</label><select id="modalPayment"><option value="">-- Select --</option><option value="Cash">💵 Cash</option><option value="Alipay">📱 Alipay</option><option value="WeChat">💬 WeChat</option><option value="eTransfer">🏦 eTransfer</option><option value="Card">💳 Card</option></select></div>
+        <div class="form-row"><label>Buyer</label><input type="text" id="modalBuyer"></div>
+        <div class="form-row"><label>Selling Status</label><select id="modalSellingStatus"><option value="">-- Select --</option><option value="Available">✅ Available</option><option value="Reserved">🔒 Reserved</option></select></div>
+        <div class="form-row"><label>Delivery Status</label><select id="modalDeliveryStatus"><option value="">-- Select --</option><option value="Arrived">📦 Arrived</option><option value="Pending">⏳ Pending</option><option value="Shipped">🚚 Shipped</option><option value="Cancelled">❌ Cancelled</option></select></div>
+        <div class="form-row"><label>Notes</label><textarea id="modalNotes" rows="1"></textarea></div>
         
-	<!-- 图片上传区域 -->
         <div class="form-row">
             <label>Product Image</label>
             <div class="image-upload-area" id="imageUploadArea">
@@ -373,6 +360,37 @@
     </div>
 </div>
 
+<!-- Image Only Modal (for clicking on image column) -->
+<div id="imageModal" class="modal">
+    <div class="modal-content image-modal-content">
+        <h3 id="imageModalTitle">Product Image</h3>
+        <input type="hidden" id="imageModalProductId">
+        <input type="hidden" id="imageModalCurrentUrl">
+        
+        <div style="text-align: center; margin: 15px 0;">
+            <div id="imageModalPreview">
+                <img id="imageModalImg" class="preview-img-large" style="display:none;" alt="Product image">
+                <p id="imageModalNoImage" style="color: #94a3b8; padding: 20px;">No image uploaded yet</p>
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="image-upload-area" id="imageModalUploadArea">
+                <span class="placeholder-text">
+                    <span class="icon">📷</span>
+                    Upload new image
+                    <input type="file" id="imageModalInput" accept="image/*" style="display:none;">
+                </span>
+            </div>
+        </div>
+        
+        <div class="modal-actions">
+            <button class="btn-outline" id="imageModalCloseBtn">Close</button>
+            <button class="btn-danger" id="imageModalRemoveBtn" style="display:none;">🗑️ Remove Image</button>
+        </div>
+    </div>
+</div>
+
 <script>
 (function() {
     const SUPABASE_URL = 'https://wkjdurwdgxqnublysanb.supabase.co';
@@ -382,9 +400,7 @@
     if (!window._supabaseClient) window._supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     supabase = window._supabaseClient;
     
-    // Storage Bucket 名称（需要先在 Supabase 中创建）
     const STORAGE_BUCKET = 'product-images';
-    
     let allRecords = [], allLogs = [], soldItems = [];
     let searchKeyword = '', soldSearchKeyword = '', logSearchKeyword = '';
     let selectedRecordIds = new Set();
@@ -394,7 +410,11 @@
     let tempImageFile = null;
     let tempImageUrl = '';
     
-    // DOM references
+    // Image modal variables
+    let imageModalRecordId = null;
+    let imageModalCurrentUrl = '';
+    
+    // DOM references - main modal
     const imageInput = document.getElementById('imageInput');
     const imageUploadArea = document.getElementById('imageUploadArea');
     const imagePlaceholder = document.getElementById('imagePlaceholder');
@@ -403,6 +423,17 @@
     const removeImageBtn = document.getElementById('removeImageBtn');
     const imageUrlInput = document.getElementById('imageUrl');
     
+    // DOM references - image modal
+    const imageModal = document.getElementById('imageModal');
+    const imageModalImg = document.getElementById('imageModalImg');
+    const imageModalNoImage = document.getElementById('imageModalNoImage');
+    const imageModalProductId = document.getElementById('imageModalProductId');
+    const imageModalCurrentUrl = document.getElementById('imageModalCurrentUrl');
+    const imageModalInput = document.getElementById('imageModalInput');
+    const imageModalRemoveBtn = document.getElementById('imageModalRemoveBtn');
+    const imageModalTitle = document.getElementById('imageModalTitle');
+    const imageModalUploadArea = document.getElementById('imageModalUploadArea');
+    
     const formatSelling = (s) => { if (!s) return '-'; const map = { 'Available': '✅ Available', 'Reserved': '🔒 Reserved' }; return map[s] || s; };
     const formatDelivery = (s) => { if (!s) return '-'; const map = { 'Arrived': '📦 Arrived', 'Pending': '⏳ Pending', 'Shipped': '🚚 Shipped', 'Cancelled': '❌ Cancelled' }; return map[s] || s; };
     const formatPayment = (p) => { if (!p) return '-'; const map = { 'Cash': '💵 Cash', 'Alipay': '📱 Alipay', 'WeChat': '💬 WeChat', 'eTransfer': '🏦 eTransfer', 'Card': '💳 Card' }; return map[p] || p; };
@@ -410,55 +441,8 @@
     const escapeHtml = (str) => { if (!str) return ''; return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); };
     const setStatus = (text, isErr = false) => { const el = document.getElementById('syncStatus'); if (el) { el.innerHTML = text; el.style.backgroundColor = isErr ? '#dc2626' : '#2b6e4f'; setTimeout(() => { if (!isErr && el.innerHTML === text) el.innerHTML = '✅ Synced'; }, 2000); } };
     
-    // ========== 图片上传功能 ==========
+    // ========== Image Upload Functions ==========
     
-    // 点击上传区域触发文件选择
-    imageUploadArea.addEventListener('click', function(e) {
-        if (e.target === removeImageBtn) return;
-        imageInput.click();
-    });
-    
-    // 文件选择后处理
-    imageInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        // 验证文件类型
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file.');
-            return;
-        }
-        
-        // 验证文件大小（限制 5MB）
-        if (file.size > 5 * 1024 * 1024) {
-            alert('Image size must be less than 5MB.');
-            return;
-        }
-        
-        tempImageFile = file;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            previewImg.src = e.target.result;
-            imagePlaceholder.style.display = 'none';
-            imagePreview.style.display = 'block';
-            tempImageUrl = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
-    
-    // 移除图片
-    removeImageBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        tempImageFile = null;
-        tempImageUrl = '';
-        imagePlaceholder.style.display = 'block';
-        imagePreview.style.display = 'none';
-        previewImg.src = '';
-        imageInput.value = '';
-        imageUrlInput.value = '';
-    });
-    
-    // 上传图片到 Supabase Storage
     async function uploadImage(file, productName) {
         try {
             const fileExt = file.name.split('.').pop();
@@ -471,14 +455,11 @@
                     cacheControl: '3600',
                     upsert: false
                 });
-            
             if (error) throw error;
             
-            // 获取公开 URL
             const { data: urlData } = supabase.storage
                 .from(STORAGE_BUCKET)
                 .getPublicUrl(filePath);
-            
             return urlData.publicUrl;
         } catch (error) {
             console.error('Upload error:', error);
@@ -486,19 +467,179 @@
         }
     }
     
-    // 删除图片
-    async function deleteImage(imageUrl) {
+    async function deleteImageFromStorage(imageUrl) {
         if (!imageUrl) return;
         try {
-            const filePath = imageUrl.split('/').pop();
+            const fileName = imageUrl.split('/').pop();
+            const fullPath = `products/${fileName}`;
             const { error } = await supabase.storage
                 .from(STORAGE_BUCKET)
-                .remove([filePath]);
+                .remove([fullPath]);
             if (error) console.warn('Delete image error:', error);
         } catch (e) {
             console.warn('Delete image error:', e);
         }
     }
+    
+    function handleFileSelect(file, previewElement, placeholderElement, previewContainer) {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file.');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image size must be less than 5MB.');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewElement.src = e.target.result;
+            if (placeholderElement) placeholderElement.style.display = 'none';
+            if (previewContainer) previewContainer.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+        return file;
+    }
+    
+    // ========== Main Modal Image Upload ==========
+    
+    imageUploadArea.addEventListener('click', function(e) {
+        if (e.target === removeImageBtn) return;
+        imageInput.click();
+    });
+    
+    imageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        tempImageFile = file;
+        handleFileSelect(file, previewImg, imagePlaceholder, imagePreview);
+    });
+    
+    removeImageBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        tempImageFile = null;
+        tempImageUrl = '';
+        imagePlaceholder.style.display = 'block';
+        imagePreview.style.display = 'none';
+        previewImg.src = '';
+        imageInput.value = '';
+        imageUrlInput.value = '';
+    });
+    
+    // ========== Image Modal (click on image column) ==========
+    
+    function openImageModal(recordId, productName, currentImageUrl) {
+        imageModalRecordId = recordId;
+        imageModalCurrentUrl = currentImageUrl || '';
+        imageModalProductId.value = recordId;
+        imageModalCurrentUrl.value = imageModalCurrentUrl;
+        imageModalTitle.innerText = `📸 ${productName}`;
+        
+        // Show/hide image preview
+        if (currentImageUrl) {
+            imageModalImg.src = currentImageUrl;
+            imageModalImg.style.display = 'block';
+            imageModalNoImage.style.display = 'none';
+            imageModalRemoveBtn.style.display = 'inline-block';
+        } else {
+            imageModalImg.style.display = 'none';
+            imageModalNoImage.style.display = 'block';
+            imageModalRemoveBtn.style.display = 'none';
+        }
+        
+        // Reset file input
+        imageModalInput.value = '';
+        imageModal.style.display = 'flex';
+    }
+    
+    function closeImageModal() {
+        imageModal.style.display = 'none';
+        imageModalInput.value = '';
+    }
+    
+    // Image modal - click to upload
+    imageModalUploadArea.addEventListener('click', function(e) {
+        imageModalInput.click();
+    });
+    
+    imageModalInput.addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const productId = parseInt(imageModalProductId.value);
+        const product = allRecords.find(r => r.id === productId);
+        if (!product) return;
+        
+        try {
+            setStatus('📤 Uploading image...');
+            const imageUrl = await uploadImage(file, product.product_name);
+            
+            // Update database
+            const { error } = await supabase
+                .from('sales_records')
+                .update({ image_url: imageUrl })
+                .eq('id', productId);
+            if (error) throw error;
+            
+            // Update local data
+            const idx = allRecords.findIndex(r => r.id === productId);
+            if (idx !== -1) allRecords[idx].image_url = imageUrl;
+            
+            // Update UI
+            imageModalImg.src = imageUrl;
+            imageModalImg.style.display = 'block';
+            imageModalNoImage.style.display = 'none';
+            imageModalRemoveBtn.style.display = 'inline-block';
+            imageModalCurrentUrl = imageUrl;
+            
+            setStatus('✅ Image uploaded');
+            renderTable();
+            closeImageModal();
+        } catch (err) {
+            alert('Upload failed: ' + err.message);
+            setStatus('❌ ' + err.message, true);
+        }
+    });
+    
+    // Image modal - remove image
+    imageModalRemoveBtn.addEventListener('click', async function() {
+        const productId = parseInt(imageModalProductId.value);
+        if (!confirm('Remove this image?')) return;
+        
+        try {
+            if (imageModalCurrentUrl) {
+                await deleteImageFromStorage(imageModalCurrentUrl);
+            }
+            
+            const { error } = await supabase
+                .from('sales_records')
+                .update({ image_url: null })
+                .eq('id', productId);
+            if (error) throw error;
+            
+            const idx = allRecords.findIndex(r => r.id === productId);
+            if (idx !== -1) allRecords[idx].image_url = null;
+            
+            imageModalImg.style.display = 'none';
+            imageModalNoImage.style.display = 'block';
+            imageModalRemoveBtn.style.display = 'none';
+            imageModalCurrentUrl = '';
+            
+            setStatus('🗑️ Image removed');
+            renderTable();
+            closeImageModal();
+        } catch (err) {
+            alert('Remove failed: ' + err.message);
+        }
+    });
+    
+    // Close image modal
+    document.getElementById('imageModalCloseBtn').addEventListener('click', closeImageModal);
+    window.addEventListener('click', function(e) {
+        if (e.target === imageModal) closeImageModal();
+    });
+    
+    // ========== Sort Functions ==========
     
     const sortRecords = (records) => {
         if (sortField === 'created_at' && sortOrder === 'desc') return records;
@@ -545,6 +686,8 @@
         renderTable();
     };
     
+    // ========== Log Functions ==========
+    
     const logOp = async (rid, type, oldD, newD, fields, pName) => {
         try {
             let newStore = newD;
@@ -553,6 +696,8 @@
             if (currentTab === 'logs') await loadLogs();
         } catch(e) { console.warn(e); }
     };
+    
+    // ========== Data Loading ==========
     
     const loadRecords = async () => {
         try {
@@ -727,11 +872,9 @@
     const deleteRecord = async (record) => {
         if (!confirm(`Delete "${record.product_name}" permanently? You can restore from Log.`)) return;
         const oldCopy = { ...record };
-        // 如果有图片，删除图片
         if (record.image_url) {
             try {
-                const filePath = record.image_url.split('/').pop();
-                await supabase.storage.from(STORAGE_BUCKET).remove([filePath]);
+                await deleteImageFromStorage(record.image_url);
             } catch(e) { console.warn('Delete image error:', e); }
         }
         const { error } = await supabase.from('sales_records').delete().eq('id', record.id);
@@ -766,7 +909,9 @@
         let html = '';
         for (const record of sorted) {
             const checked = selectedRecordIds.has(record.id);
-            const imageHtml = record.image_url ? `<img src="${record.image_url}" class="product-image-thumb" onclick="window.open('${record.image_url}','_blank')" title="Click to view full size">` : '📷 No image';
+            const imageHtml = record.image_url 
+                ? `<img src="${record.image_url}" class="product-image-thumb" onclick="event.stopPropagation(); window.open('${record.image_url}','_blank')" title="Click to view full size">` 
+                : `<span class="placeholder-icon">📷</span><span class="placeholder-text-small">Click to add</span>`;
             html += `
                 <tr data-id="${record.id}" class="${checked ? 'selected-row' : ''}">
                     <td class="checkbox-col"><input type="checkbox" class="row-checkbox" data-id="${record.id}" ${checked ? 'checked' : ''}></td>
@@ -779,7 +924,9 @@
                     <td><span class="editable-cell status-badge ${getSellingClass(record.selling_status)}" data-field="selling_status" data-id="${record.id}">${formatSelling(record.selling_status)}</span></td>
                     <td><span class="editable-cell" data-field="delivery_status" data-id="${record.id}">${formatDelivery(record.delivery_status)}</span></td>
                     <td><span class="editable-cell" data-field="notes" data-id="${record.id}">${escapeHtml(record.notes)}</span></td>
-                    <td>${imageHtml}</td>
+                    <td class="image-cell" onclick="openImageModal(${record.id}, '${escapeHtml(record.product_name)}', '${record.image_url || ''}')">
+                        ${imageHtml}
+                    </td>
                     <td>
                         <button class="action-btn sell-btn" data-id="${record.id}">💰 Sell</button>
                         <button class="action-btn delete-btn" data-id="${record.id}">🗑️</button>
@@ -868,7 +1015,6 @@
     const openModal = (record = null) => {
         const title = document.getElementById('modalTitle');
         const editId = document.getElementById('editId');
-        // 重置图片上传状态
         tempImageFile = null;
         tempImageUrl = '';
         imagePlaceholder.style.display = 'block';
@@ -918,8 +1064,6 @@
         if (!pName) { alert('Product name required'); return; }
         
         let imageUrl = imageUrlInput.value || '';
-        
-        // 如果有新图片上传，先上传到 Storage
         if (tempImageFile) {
             try {
                 setStatus('📤 Uploading image...');
